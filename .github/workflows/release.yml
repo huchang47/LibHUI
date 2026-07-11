@@ -1,0 +1,33 @@
+name: Release packages
+
+on:
+  push:
+    tags:
+      - "v*"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    name: Build release archives
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Build archives
+        run: |
+          mkdir -p dist
+          zip -r "dist/LibHUI-${GITHUB_REF_NAME}.zip" LibHUI LICENSE.md CHANGELOG.md README.md README_EN.md docs
+          zip -r "dist/HUISample-${GITHUB_REF_NAME}.zip" HUISample LICENSE.md CHANGELOG.md
+
+      - name: Upload release assets
+        uses: softprops/action-gh-release@v2
+        with:
+          files: dist/*.zip
+          generate_release_notes: true
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

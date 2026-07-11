@@ -1,0 +1,34 @@
+# IDE and OS
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
+
+# Build artifacts
+*.zip
+release/
+.release/
+
+# Git
+.git/
+
+# Documentation drafts
+*.draft.md
+
+# Backup files
+*.bak
+*~
+
+# Local-only files
+项目参考/
+界面参考/
+横版.psd
+*.code-workspace
+HUI_PLAN.md
+Sync-LibHUI.ps1
+Sync-LibHUI.cmd
+HUI插件同步到魔兽目录.bat
+
+# Release artifacts
+LibHUI_*.zip
+HUISample_*.zip

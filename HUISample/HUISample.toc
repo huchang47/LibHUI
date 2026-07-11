@@ -1,0 +1,14 @@
+## Interface: 120007
+## Title: HUI Sample
+## Title-zhCN: HUI 示例
+## Notes: Sample addon for HUI settings UI library.
+## Notes-zhCN: HUI 设置界面库的示例插件。
+## Author: HUI
+## Version: 0.1.0
+## SavedVariables: HUISampleDB
+
+libs\LibHUI\LibHUI.xml
+Locales\enUS.lua
+Locales\zhCN.lua
+Core.lua
+Settings.lua

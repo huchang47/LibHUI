@@ -1,0 +1,16 @@
+enable-nolib-creation: no
+
+ignore:
+  - .github
+  - .git
+  - .gitignore
+  - .pkgmeta
+  - .luacheckrc
+  - CHANGELOG.md
+  - README.md
+
+package-as: HUISample
+
+manual-changelog:
+  filename: CHANGELOG.md
+  markup-type: markdown

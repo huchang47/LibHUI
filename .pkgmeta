@@ -1,0 +1,28 @@
+enable-nolib-creation: no
+
+ignore:
+  - .github
+  - .git
+  - .gitignore
+  - .luacheckrc
+  - .vscode
+  - docs
+  - 项目参考
+  - 界面参考
+  - HUI_PLAN.md
+  - AGENTS.md
+  - SKILL.md
+  - 横版.psd
+  - README.md
+  - README_EN.md
+  - Sync-LibHUI.ps1
+  - Sync-LibHUI.cmd
+  - HUI插件同步到魔兽目录.bat
+  - "*.code-workspace"
+  - "*.zip"
+
+package-as: LibHUI
+
+manual-changelog:
+  filename: CHANGELOG.md
+  markup-type: markdown

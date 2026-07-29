@@ -136,6 +136,12 @@ function UI:GetFrame()
   frame.detailDesc:SetJustifyH("CENTER")
   frame.detailDesc:SetWordWrap(true)
 
+  -- 详情区自定义内容容器：control 可提供 detailRenderer(container, control) 在此渲染任意控件（如可勾选列表、图标画廊）
+  frame.detailContent = CreateFrame("Frame", nil, frame.detail)
+  frame.detailContent:SetPoint("TOPLEFT", frame.detailDesc, "BOTTOMLEFT", 0, -16)
+  frame.detailContent:SetPoint("BOTTOMRIGHT", frame.detail, "BOTTOMRIGHT", -20, 20)
+  frame.detailContent.children = {}
+
   frame.footer = CreateFrame("Frame", nil, frame)
   frame.footer:SetPoint("BOTTOMLEFT", frame, "BOTTOMLEFT", 18, 14)
   frame.footer:SetPoint("BOTTOMRIGHT", frame, "BOTTOMRIGHT", -18, 14)
@@ -169,6 +175,9 @@ end
 function UI:SetDetail(control)
   local frame = self:GetFrame()
 
+  -- 每次切换详情前清理上一控件的自定义内容，避免残留
+  ClearChildren(frame.detailContent)
+
   if not control then
     frame.detailTitle:SetText("")
     frame.detailDesc:SetText("")
@@ -183,6 +192,11 @@ function UI:SetDetail(control)
     desc = desc(control) or ""
   end
   frame.detailDesc:SetText(desc)
+
+  -- detailRenderer(container, control)：control 可在详情区渲染任意自定义控件（如可勾选曲目列表、图标画廊）
+  if type(control.detailRenderer) == "function" then
+    control.detailRenderer(frame.detailContent, control)
+  end
 end
 
 function UI:RenderNav(app, currentPage)

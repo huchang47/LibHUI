@@ -9,6 +9,8 @@ read_globals = {
   "GetLocale",
   "UIParent",
   "CreateFrame",
+  "CreateFont",
+  "STANDARD_TEXT_FONT",
   "GetCursorPosition",
   "IsShiftKeyDown",
   "IsControlKeyDown",

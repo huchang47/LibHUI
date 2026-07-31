@@ -21,6 +21,15 @@ HUI.Widgets = Widgets
 
 local L = HUI.L
 
+Widgets.POPUP_STRATA = "TOOLTIP"
+Widgets.POPUP_FRAME_LEVEL = 100
+Widgets.POPUP_BACKDROP_LEVEL = 99
+
+local function ConfigureManagedPopup(frame, level)
+  frame:SetFrameStrata(Widgets.POPUP_STRATA)
+  frame:SetFrameLevel(level or Widgets.POPUP_FRAME_LEVEL)
+end
+
 local function SetColor(texture, color)
   texture:SetColorTexture(color[1], color[2], color[3], color[4])
 end
@@ -123,7 +132,10 @@ function Widgets:CreateButton(parent, text, width, height)
   button.accent:SetHeight(3)
 
   button.text = self:CreateText(button, Theme.fonts.body, text, "text")
-  button.text:SetPoint("CENTER")
+  button.text:SetPoint("LEFT", button, "LEFT", 2, 0)
+  button.text:SetPoint("RIGHT", button, "RIGHT", -2, 0)
+  button.text:SetJustifyH("CENTER")
+  button.text:SetWordWrap(false)
 
   button._huiListenerID = Theme:OnAccentChanged(ApplyAccentBar)
 
@@ -215,7 +227,10 @@ function Widgets:CreateActionButton(parent, text, width, height, onClick)
   end
 
   button.text = self:CreateText(button, Theme.fonts.body, text, "text")
-  button.text:SetPoint("CENTER")
+  button.text:SetPoint("LEFT", button, "LEFT", 2, 0)
+  button.text:SetPoint("RIGHT", button, "RIGHT", -2, 0)
+  button.text:SetJustifyH("CENTER")
+  button.text:SetWordWrap(false)
 
   local function SetBorder(color)
     SetColor(button.borderTop, color)
@@ -607,6 +622,7 @@ end
 -- 全局追踪当前打开的下拉，保证同时只有一个展开
 local _openDropdown = nil
 local _managedPopups = {}
+local _registeredNativeColorPicker = nil
 
 local function RegisterManagedPopup(...)
   local frames = {...}
@@ -649,6 +665,11 @@ function Widgets:CreateDropdown(parent, options, currentValue, onChanged)
   bg:SetAllPoints()
   bg:SetColorTexture(0x0a/255, 0x12/255, 0x1c/255, 0.92)
 
+  local selectedPreview = container:CreateTexture(nil, "BACKGROUND", nil, 1)
+  selectedPreview:SetAllPoints()
+  selectedPreview:SetVertexColor(0.55, 0.58, 0.62, 0.78)
+  selectedPreview:Hide()
+
   -- 四边边框
   local function MakeEdge() return container:CreateTexture(nil, "BORDER") end
   local et = MakeEdge(); et:SetPoint("TOPLEFT"); et:SetPoint("TOPRIGHT"); et:SetHeight(1)
@@ -680,11 +701,23 @@ function Widgets:CreateDropdown(parent, options, currentValue, onChanged)
   arrow:SetTexture("Interface\\Buttons\\Arrow-Down-Up")
   arrow:SetVertexColor(0.75, 0.78, 0.82, 1)
 
-  -- 弹出列表面板（FULLSCREEN_DIALOG 保证在最上层）
+  local function ApplySelection(option)
+    container._value = option and option.value or nil
+    displayText:SetText(option and (option.label or option.value) or "")
+    if option and option.texture then
+      selectedPreview:SetTexture(option.texture)
+      selectedPreview:Show()
+    else
+      selectedPreview:Hide()
+    end
+  end
+
+  -- 弹层必须高于设置页自身的 FULLSCREEN_DIALOG 子控件。
   local popup = CreateFrame("Frame", nil, UIParent)
-  popup:SetFrameStrata("FULLSCREEN_DIALOG")
+  ConfigureManagedPopup(popup)
   popup:SetClampedToScreen(true)
   popup:Hide()
+  RegisterManagedPopup(popup)
   popup.bg = popup:CreateTexture(nil, "BACKGROUND")
   popup.bg:SetAllPoints()
   popup.bg:SetColorTexture(0x06/255, 0x0e/255, 0x16/255, 0.98)
@@ -719,6 +752,13 @@ function Widgets:CreateDropdown(parent, options, currentValue, onChanged)
       rowBg:SetAllPoints()
       rowBg:SetColorTexture(0, 0, 0, 0)
 
+      if opt.texture then
+        local preview = row:CreateTexture(nil, "BACKGROUND", nil, 1)
+        preview:SetAllPoints()
+        preview:SetTexture(opt.texture)
+        preview:SetVertexColor(0.58, 0.60, 0.64, 0.82)
+      end
+
       local lbl = row:CreateFontString(nil, "OVERLAY", Theme.fonts.small)
       lbl:SetPoint("LEFT", row, "LEFT", 10, 0)
       lbl:SetTextColor(0.90, 0.92, 0.95, 1)
@@ -735,8 +775,7 @@ function Widgets:CreateDropdown(parent, options, currentValue, onChanged)
         rowBg:SetColorTexture(0, 0, 0, 0)
       end)
       row:SetScript("OnClick", function()
-        container._value = opt.value
-        displayText:SetText(opt.label or opt.value or "")
+        ApplySelection(opt)
         ClosePopup()
         if type(onChanged) == "function" then onChanged(opt.value) end
       end)
@@ -785,17 +824,16 @@ function Widgets:CreateDropdown(parent, options, currentValue, onChanged)
   container.CloseDropdown = ClosePopup
 
   -- 设置初始值
-  local function SetValue(value)
-    container._value = value
+  local function SetValue(self, value)
     for _, opt in ipairs(options) do
       if opt.value == value then
-        displayText:SetText(opt.label or opt.value or "")
+        ApplySelection(opt)
         return
       end
     end
-    displayText:SetText("")
+    ApplySelection(nil)
   end
-  SetValue(currentValue)
+  SetValue(container, currentValue)
   container.SetValue = SetValue
   container.GetValue = function() return container._value end
 
@@ -871,7 +909,7 @@ function Widgets:CreateMultiDropdown(parent, options, value, onChanged)
 
   -- 弹出列表
   local popup = CreateFrame("Frame", nil, UIParent)
-  popup:SetFrameStrata("FULLSCREEN_DIALOG")
+  ConfigureManagedPopup(popup)
   popup:SetSize(200, 200)
   popup:Hide()
 
@@ -966,16 +1004,19 @@ function Widgets:CreateMultiDropdown(parent, options, value, onChanged)
     end
 
     scrollChild:SetHeight(#options * rowHeight)
+
+    popup:SetHeight(#options * rowHeight + 16)
   end
 
   BuildRows()
 
   -- 全屏透明拦截层
   local backdrop = CreateFrame("Frame", nil, UIParent)
-  backdrop:SetFrameStrata("FULLSCREEN")
+  ConfigureManagedPopup(backdrop, Widgets.POPUP_BACKDROP_LEVEL)
   backdrop:SetAllPoints(UIParent)
   backdrop:EnableMouse(true)
   backdrop:Hide()
+  RegisterManagedPopup(popup, backdrop)
 
   local function ClosePopup()
     popup:Hide()
@@ -1230,7 +1271,7 @@ function Widgets:CreateIconPicker(parent, value, options, onChanged)
   local popH = math.ceil(#options / cols) * cellSize + padding * 2
 
   local popup = CreateFrame("Frame", nil, UIParent)
-  popup:SetFrameStrata("FULLSCREEN_DIALOG")
+  ConfigureManagedPopup(popup)
   popup:SetSize(popW, popH)
   popup:Hide()
 
@@ -1246,10 +1287,11 @@ function Widgets:CreateIconPicker(parent, value, options, onChanged)
 
   -- 全屏拦截层（需在 BuildGrid 之前声明，供 cell 的 OnClick 闭包捕获）
   local backdrop = CreateFrame("Frame", nil, UIParent)
-  backdrop:SetFrameStrata("FULLSCREEN")
+  ConfigureManagedPopup(backdrop, Widgets.POPUP_BACKDROP_LEVEL)
   backdrop:SetAllPoints(UIParent)
   backdrop:EnableMouse(true)
   backdrop:Hide()
+  RegisterManagedPopup(popup, backdrop)
 
   -- 图标网格
   local cells = {}
@@ -1476,191 +1518,108 @@ function Widgets:CreateReorderList(parent, items, onChanged)
 end
 
 function Widgets:CreateColorPicker(parent, color, onChanged)
-  -- color: { r, g, b, a }，缺省或非法时兜底为白色，避免空值崩溃
-  if type(color) ~= "table" then
-    color = { 1, 1, 1, 1 }
-  end
-
+  color = type(color) == "table" and color or {1, 1, 1, 1}
+  local currentColor = {color[1] or 1, color[2] or 1, color[3] or 1, color[4] or 1}
   local container = CreateFrame("Frame", nil, parent)
-  container:SetSize(80, 24)
-  
-  -- 色块预览按钮
+  container:SetSize(28, 24)
+
   local swatch = CreateFrame("Button", nil, container)
   swatch:SetSize(24, 24)
-  swatch:SetPoint("LEFT", container, "LEFT", 0, 0)
-  
-  local swatchBg = swatch:CreateTexture(nil, "BACKGROUND")
-  swatchBg:SetAllPoints()
-  swatchBg:SetColorTexture(color[1], color[2], color[3], color[4] or 1)
-  container.swatchBg = swatchBg
-  
-  -- 边框
-  local function MakeEdge() return swatch:CreateTexture(nil, "BORDER") end
-  local et = MakeEdge(); et:SetPoint("TOPLEFT"); et:SetPoint("TOPRIGHT"); et:SetHeight(1)
-  local eb = MakeEdge(); eb:SetPoint("BOTTOMLEFT"); eb:SetPoint("BOTTOMRIGHT"); eb:SetHeight(1)
-  local el = MakeEdge(); el:SetPoint("TOPLEFT"); el:SetPoint("BOTTOMLEFT"); el:SetWidth(1)
-  local er = MakeEdge(); er:SetPoint("TOPRIGHT"); er:SetPoint("BOTTOMRIGHT"); er:SetWidth(1)
-  local edges = {et, eb, el, er}
-  
-  local function ApplyBorder(focused)
-    local accent = Theme:Color("accent")
-    local a = focused and 1 or 0.6
-    for _, e in ipairs(edges) do e:SetColorTexture(accent[1], accent[2], accent[3], a) end
-  end
-  ApplyBorder(false)
-  container._huiListenerID = Theme:OnAccentChanged(function() ApplyBorder(container._open) end)
-  
-  -- HEX 文本显示
-  local hexText = container:CreateFontString(nil, "OVERLAY", Theme.fonts.small)
-  hexText:SetPoint("LEFT", swatch, "RIGHT", 8, 0)
-  hexText:SetTextColor(0.90, 0.92, 0.95, 1)
-  
-  local function RGBToHex(r, g, b)
-    return string.format("#%02x%02x%02x", math.floor(r*255), math.floor(g*255), math.floor(b*255))
-  end
-  
-  hexText:SetText(RGBToHex(color[1], color[2], color[3]))
-  
-  -- 颜色面板（弹出）
-  local panel = CreateFrame("Frame", nil, UIParent)
-  panel:SetFrameStrata("FULLSCREEN_DIALOG")
-  panel:SetSize(240, 160)
-  panel:Hide()
-  
-  local panelBg = panel:CreateTexture(nil, "BACKGROUND")
-  panelBg:SetAllPoints()
-  panelBg:SetColorTexture(0x06/255, 0x0e/255, 0x16/255, 0.98)
-  
-  local panelBorder = CreateFrame("Frame", nil, panel, "BackdropTemplate")
-  panelBorder:SetAllPoints()
-  panelBorder:SetBackdrop({edgeFile="Interface\\Buttons\\WHITE8X8", edgeSize=1})
-  local accent = Theme:Color("accent")
-  panelBorder:SetBackdropBorderColor(accent[1], accent[2], accent[3], 0.8)
-  
-  -- RGB 滑块组
-  local sliders = {}
-  local labels = {"R", "G", "B"}
-  local currentColor = {color[1], color[2], color[3], color[4] or 1}
-  
-  for i, lbl in ipairs(labels) do
-    local label = panel:CreateFontString(nil, "OVERLAY", Theme.fonts.small)
-    label:SetPoint("TOPLEFT", panel, "TOPLEFT", 12, -12 - (i-1)*32)
-    label:SetText(lbl)
-    label:SetTextColor(0.85, 0.87, 0.90, 1)
-    
-    local slider = self:CreateSlider(panel, currentColor[i], 0, 1, 0.01, function(val)
-      currentColor[i] = val
-      swatchBg:SetColorTexture(currentColor[1], currentColor[2], currentColor[3], currentColor[4])
-      hexText:SetText(RGBToHex(currentColor[1], currentColor[2], currentColor[3]))
-      if type(onChanged) == "function" then
-        onChanged({currentColor[1], currentColor[2], currentColor[3], currentColor[4]})
-      end
-    end)
-    slider:SetSize(160, 16)
-    slider:SetPoint("LEFT", label, "RIGHT", 8, 0)
-    sliders[i] = slider
-  end
-  
-  -- HEX 输入框
-  local hexLabel = panel:CreateFontString(nil, "OVERLAY", Theme.fonts.small)
-  hexLabel:SetPoint("TOPLEFT", panel, "TOPLEFT", 12, -108)
-  hexLabel:SetText("HEX")
-  hexLabel:SetTextColor(0.85, 0.87, 0.90, 1)
-  
-  local hexInput = self:CreateInput(panel, RGBToHex(color[1], color[2], color[3]), function(text)
-    local hex = text:gsub("#", "")
-    if hex:match("^%x%x%x%x%x%x$") then
-      local r = tonumber(hex:sub(1,2), 16) / 255
-      local g = tonumber(hex:sub(3,4), 16) / 255
-      local b = tonumber(hex:sub(5,6), 16) / 255
-      currentColor[1], currentColor[2], currentColor[3] = r, g, b
-      swatchBg:SetColorTexture(r, g, b, currentColor[4])
-      sliders[1]:SetValue(r)
-      sliders[2]:SetValue(g)
-      sliders[3]:SetValue(b)
-      if type(onChanged) == "function" then
-        onChanged({r, g, b, currentColor[4]})
-      end
-    end
-  end)
-  hexInput:SetSize(160, 22)
-  hexInput:SetPoint("LEFT", hexLabel, "RIGHT", 8, 0)
-  
-  -- 全屏透明拦截层：点击面板以外的区域时关闭
-  local backdrop = CreateFrame("Frame", nil, UIParent)
-  backdrop:SetFrameStrata("FULLSCREEN")
-  backdrop:SetAllPoints(UIParent)
-  backdrop:EnableMouse(true)
-  backdrop:Hide()
+  swatch:SetPoint("LEFT")
 
-  -- 展开/收起逻辑
-  local function ClosePanel()
-    panel:Hide()
-    backdrop:Hide()
-    container._open = false
-    ApplyBorder(false)
-  end
-  
-  local function OpenPanel()
-    panel:ClearAllPoints()
-    -- 按 swatch 的绝对屏幕坐标锚定到 UIParent，避免因列表滚动/重渲染导致 swatch 位移时面板跟着跳
-    local scale = swatch:GetEffectiveScale()
-    local uiScale = UIParent:GetEffectiveScale()
-    local left = swatch:GetLeft()
-    local top = swatch:GetTop()
-    local bottom = swatch:GetBottom()
-    if left and top and bottom then
-      -- 换算到 UIParent 坐标系
-      local x = left * scale / uiScale
-      local yTop = top * scale / uiScale
-      local yBottom = bottom * scale / uiScale
-      -- 优先在色块下方展开；靠近屏幕底部时改为上方
-      if yBottom < 180 then
-        -- 空间不足：面板底边对齐色块顶边
-        panel:SetPoint("BOTTOMLEFT", UIParent, "BOTTOMLEFT", x, yTop + 4)
-      else
-        -- 面板顶边对齐色块底边
-        panel:SetPoint("TOPLEFT", UIParent, "BOTTOMLEFT", x, yBottom - 4)
-      end
-    else
-      panel:SetPoint("TOPLEFT", swatch, "BOTTOMLEFT", 0, -4)
-    end
-    backdrop:Show()
-    panel:Show()
-    container._open = true
-    ApplyBorder(true)
-  end
+  local checkers = swatch:CreateTexture(nil, "BACKGROUND")
+  checkers:SetPoint("TOPLEFT", 2, -2)
+  checkers:SetPoint("BOTTOMRIGHT", -2, 2)
+  checkers:SetTexture(188523)
+  checkers:SetTexCoord(0.25, 0, 0.5, 0.25)
+  checkers:SetDesaturated(true)
+  checkers:SetVertexColor(1, 1, 1, 0.75)
 
-  backdrop:SetScript("OnMouseDown", function()
-    ClosePanel()
-  end)
-  
+  local swatchColor = swatch:CreateTexture(nil, "ARTWORK")
+  swatchColor:SetPoint("TOPLEFT", 3, -3)
+  swatchColor:SetPoint("BOTTOMRIGHT", -3, 3)
+  container.swatchBg = swatchColor
+
+  -- 1px 四边边框（不遮挡中间颜色，避免整块贴图盖住色块显示为白色）
+  local function MakeEdge()
+    local edge = swatch:CreateTexture(nil, "OVERLAY")
+    edge:SetColorTexture(0, 0, 0, 0.85)
+    return edge
+  end
+  local edgeTop = MakeEdge(); edgeTop:SetPoint("TOPLEFT", 2, -2); edgeTop:SetPoint("TOPRIGHT", -2, -2); edgeTop:SetHeight(1)
+  local edgeBottom = MakeEdge(); edgeBottom:SetPoint("BOTTOMLEFT", 2, 2); edgeBottom:SetPoint("BOTTOMRIGHT", -2, 2); edgeBottom:SetHeight(1)
+  local edgeLeft = MakeEdge(); edgeLeft:SetPoint("TOPLEFT", 2, -2); edgeLeft:SetPoint("BOTTOMLEFT", 2, 2); edgeLeft:SetWidth(1)
+  local edgeRight = MakeEdge(); edgeRight:SetPoint("TOPRIGHT", -2, -2); edgeRight:SetPoint("BOTTOMRIGHT", -2, 2); edgeRight:SetWidth(1)
+
+  local function UpdateColor(value, notify)
+    currentColor = {value[1] or 1, value[2] or 1, value[3] or 1, value[4] or 1}
+    swatchColor:SetColorTexture(currentColor[1], currentColor[2], currentColor[3], currentColor[4])
+    if notify and type(onChanged) == "function" then
+      onChanged({currentColor[1], currentColor[2], currentColor[3], currentColor[4]})
+    end
+  end
+  UpdateColor(currentColor, false)
+
   swatch:SetScript("OnClick", function()
-    if container._open then ClosePanel() else OpenPanel() end
-  end)
-  
-  panel:SetScript("OnHide", function()
-    container._open = false
-    ApplyBorder(false)
+    local picker = rawget(_G, "ColorPickerFrame")
+    if not picker then return end
+    picker:Hide()
+    ConfigureManagedPopup(picker)
+    picker:SetClampedToScreen(true)
+    if _registeredNativeColorPicker ~= picker then
+      RegisterManagedPopup(picker)
+      _registeredNativeColorPicker = picker
+    end
+
+    local original = {currentColor[1], currentColor[2], currentColor[3], currentColor[4]}
+    local opening = true
+    local function ApplyPickerColor()
+      if opening then return end
+      local r, g, b = picker:GetColorRGB()
+      -- 零售版 API：GetColorAlpha() 返回直接的 alpha 值（1=不透明）
+      -- 旧版 API：OpacitySliderFrame 使用反转约定（1=透明）
+      local alpha
+      if picker.GetColorAlpha then
+        alpha = picker:GetColorAlpha()
+      else
+        local opacitySlider = rawget(_G, "OpacitySliderFrame")
+        local opacity = (opacitySlider and opacitySlider:GetValue()) or 0
+        alpha = 1 - opacity
+      end
+      UpdateColor({r, g, b, alpha}, true)
+    end
+    local function RestoreOriginal()
+      opening = false
+      UpdateColor(original, true)
+    end
+
+    if picker.SetupColorPickerAndShow then
+      -- 零售版 API：SetupColorPickerAndShow 的 opacity 参数也使用反转约定（1=透明）
+      picker:SetupColorPickerAndShow({
+        r = original[1], g = original[2], b = original[3],
+        hasOpacity = true, opacity = 1 - original[4],
+        swatchFunc = ApplyPickerColor,
+        opacityFunc = ApplyPickerColor,
+        cancelFunc = RestoreOriginal,
+      })
+      opening = false
+    else
+      picker.func = ApplyPickerColor
+      picker.swatchFunc = ApplyPickerColor
+      picker.opacityFunc = ApplyPickerColor
+      picker.cancelFunc = RestoreOriginal
+      picker.hasOpacity = true
+      picker.opacity = 1 - original[4]
+      picker:SetColorRGB(original[1], original[2], original[3])
+      opening = false
+      picker:Show()
+    end
   end)
 
-  container._huiListenerIDs = container._huiListenerIDs or {}
-  container._huiListenerIDs[#container._huiListenerIDs + 1] = Theme:OnAccentChanged(ApplyPanelAccent)
-  
-  -- SetValue 接口
-  container.SetValue = function(self, c)
-    currentColor = {c[1], c[2], c[3], c[4] or 1}
-    swatchBg:SetColorTexture(currentColor[1], currentColor[2], currentColor[3], currentColor[4])
-    hexText:SetText(RGBToHex(currentColor[1], currentColor[2], currentColor[3]))
-    for i = 1, 3 do
-      sliders[i]:SetValue(currentColor[i])
-    end
-  end
-  
+  container.SetValue = function(self, value) UpdateColor(value, false) end
   container.GetValue = function(self)
     return {currentColor[1], currentColor[2], currentColor[3], currentColor[4]}
   end
-  
   return container
 end
 

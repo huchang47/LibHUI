@@ -1540,9 +1540,16 @@ function Widgets:CreateColorPicker(parent, color, onChanged)
   swatchColor:SetPoint("BOTTOMRIGHT", -3, 3)
   container.swatchBg = swatchColor
 
-  local swatchBorder = swatch:CreateTexture(nil, "OVERLAY")
-  swatchBorder:SetAllPoints()
-  swatchBorder:SetTexture(130939)
+  -- 1px 四边边框（不遮挡中间颜色，避免整块贴图盖住色块显示为白色）
+  local function MakeEdge()
+    local edge = swatch:CreateTexture(nil, "OVERLAY")
+    edge:SetColorTexture(0, 0, 0, 0.85)
+    return edge
+  end
+  local edgeTop = MakeEdge(); edgeTop:SetPoint("TOPLEFT", 2, -2); edgeTop:SetPoint("TOPRIGHT", -2, -2); edgeTop:SetHeight(1)
+  local edgeBottom = MakeEdge(); edgeBottom:SetPoint("BOTTOMLEFT", 2, 2); edgeBottom:SetPoint("BOTTOMRIGHT", -2, 2); edgeBottom:SetHeight(1)
+  local edgeLeft = MakeEdge(); edgeLeft:SetPoint("TOPLEFT", 2, -2); edgeLeft:SetPoint("BOTTOMLEFT", 2, 2); edgeLeft:SetWidth(1)
+  local edgeRight = MakeEdge(); edgeRight:SetPoint("TOPRIGHT", -2, -2); edgeRight:SetPoint("BOTTOMRIGHT", -2, 2); edgeRight:SetWidth(1)
 
   local function UpdateColor(value, notify)
     currentColor = {value[1] or 1, value[2] or 1, value[3] or 1, value[4] or 1}
@@ -1569,10 +1576,17 @@ function Widgets:CreateColorPicker(parent, color, onChanged)
     local function ApplyPickerColor()
       if opening then return end
       local r, g, b = picker:GetColorRGB()
-      local opacitySlider = rawget(_G, "OpacitySliderFrame")
-      local opacity = picker.GetColorAlpha and picker:GetColorAlpha()
-        or (opacitySlider and opacitySlider:GetValue()) or 0
-      UpdateColor({r, g, b, 1 - opacity}, true)
+      -- 零售版 API：GetColorAlpha() 返回直接的 alpha 值（1=不透明）
+      -- 旧版 API：OpacitySliderFrame 使用反转约定（1=透明）
+      local alpha
+      if picker.GetColorAlpha then
+        alpha = picker:GetColorAlpha()
+      else
+        local opacitySlider = rawget(_G, "OpacitySliderFrame")
+        local opacity = (opacitySlider and opacitySlider:GetValue()) or 0
+        alpha = 1 - opacity
+      end
+      UpdateColor({r, g, b, alpha}, true)
     end
     local function RestoreOriginal()
       opening = false
@@ -1580,6 +1594,7 @@ function Widgets:CreateColorPicker(parent, color, onChanged)
     end
 
     if picker.SetupColorPickerAndShow then
+      -- 零售版 API：SetupColorPickerAndShow 的 opacity 参数也使用反转约定（1=透明）
       picker:SetupColorPickerAndShow({
         r = original[1], g = original[2], b = original[3],
         hasOpacity = true, opacity = 1 - original[4],

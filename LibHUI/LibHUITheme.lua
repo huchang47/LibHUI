@@ -56,10 +56,10 @@ end
 
 -- 使用私有字体对象，避免 NDUi 等界面插件改写 GameFont* 后污染 LibHUI 布局。
 Theme.fonts = {
-  title = CreateThemeFont("Title", 18),
-  heading = CreateThemeFont("Heading", 15),
-  body = CreateThemeFont("Body", 12),
-  small = CreateThemeFont("Small", 11),
+  title = CreateThemeFont("Title", 24),
+  heading = CreateThemeFont("Heading", 18),
+  body = CreateThemeFont("Body", 16),
+  small = CreateThemeFont("Small", 14),
 }
 
 Theme.assets = {

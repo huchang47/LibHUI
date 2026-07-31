@@ -316,7 +316,7 @@ app:RegisterControl("appearance.style", {
 })
 
 -- ──────────────────────────────────────
--- colorpicker - 颜色选择器
+-- colorpicker - 颜色选择器（同步强调色主题）
 -- ──────────────────────────────────────
 app:RegisterControl("appearance.style", {
   id = "accentColor",
@@ -327,6 +327,15 @@ app:RegisterControl("appearance.style", {
   description = L["accentColorDesc"],
   default = { 1.0, 0.78, 0.02, 1.0 },  -- 默认黄色
   order = 400,
+  setValue = function(value)
+    -- 保存到 DB
+    DB().accentColor = value
+    -- 同步更新主题强调色
+    local Theme = HUI.Theme
+    if Theme and value and type(value) == "table" then
+      Theme:SetAccentColor(value[1] or 1, value[2] or 1, value[3] or 1, value[4] or 1)
+    end
+  end,
 })
 
 -- ──────────────────────────────────────

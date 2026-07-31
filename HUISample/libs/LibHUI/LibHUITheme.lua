@@ -6,6 +6,9 @@
 
 local addonName, addon = ...
 
+local CreateFont = CreateFont
+local STANDARD_TEXT_FONT = STANDARD_TEXT_FONT
+
 addon.LibHUI = addon.LibHUI or {}
 
 local HUI = addon.LibHUI
@@ -42,11 +45,21 @@ Theme.sizes = {
   inset = 18,
 }
 
+local function CreateThemeFont(role, size)
+  local fontName = addonName .. "LibHUI" .. role .. "Font"
+  local font = _G[fontName] or CreateFont(fontName)
+  font:SetFont(STANDARD_TEXT_FONT, size, "")
+  font:SetShadowColor(0, 0, 0, 1)
+  font:SetShadowOffset(1, -1)
+  return fontName
+end
+
+-- 使用私有字体对象，避免 NDUi 等界面插件改写 GameFont* 后污染 LibHUI 布局。
 Theme.fonts = {
-  title = "GameFontNormalHuge",
-  heading = "GameFontNormalLarge",
-  body = "GameFontNormal",
-  small = "GameFontHighlightSmall",
+  title = CreateThemeFont("Title", 24),
+  heading = CreateThemeFont("Heading", 18),
+  body = CreateThemeFont("Body", 16),
+  small = CreateThemeFont("Small", 14),
 }
 
 Theme.assets = {

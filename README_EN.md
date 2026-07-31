@@ -2,6 +2,8 @@
 
 LibHUI is a modern UI framework for World of Warcraft addon developers. With minimal Lua configuration, you can generate a consistent, polished, and reusable settings panel and UI components.
 
+![LibHUI Preview](./docs/assets/preview.png)
+
 ## ✨ Features
 
 - **Zero learning curve**: Replace hundreds of `CreateFrame` lines with structured config

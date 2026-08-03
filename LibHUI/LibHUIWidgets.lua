@@ -488,18 +488,23 @@ function Widgets:CreateToggle(parent, checked, onChanged)
 
   local function ApplyAccent()
     local accent = Theme:Color("accent")
+    local muted = Theme:Color("muted")
     -- 轨道恒定深色，用滑块位置 + 颜色表达开关状态
     SetColor(button.bg, Theme:Color("toggleOff"))
-    local edgeColor = { accent[1], accent[2], accent[3], 0.8 }
-    for _, e in ipairs({ button.edgeTop, button.edgeBottom, button.edgeLeft, button.edgeRight }) do
-      SetColor(e, edgeColor)
-    end
     if button.checked then
-      -- 开启：滑块为高亮重点色
+      -- 开启：滑块与边框均为高亮重点色
+      local edgeColor = { accent[1], accent[2], accent[3], 0.8 }
+      for _, e in ipairs({ button.edgeTop, button.edgeBottom, button.edgeLeft, button.edgeRight }) do
+        SetColor(e, edgeColor)
+      end
       SetColor(button.thumb, accent)
     else
-      -- 关闭：滑块为亮灰色（比轨道 toggleOff 明显更亮，保证可辨）
-      SetColor(button.thumb, Theme:Color("muted"))
+      -- 关闭：滑块与边框均为亮灰色
+      local edgeColor = { muted[1], muted[2], muted[3], 0.8 }
+      for _, e in ipairs({ button.edgeTop, button.edgeBottom, button.edgeLeft, button.edgeRight }) do
+        SetColor(e, edgeColor)
+      end
+      SetColor(button.thumb, muted)
     end
   end
 

@@ -621,6 +621,18 @@ function Widgets:CreateSlider(parent, value, minValue, maxValue, step, onChanged
     end
   end)
 
+  --滑块支持鼠标滚轮调整
+  slider:EnableMouseWheel(true)
+  slider:SetScript("OnMouseWheel", function(self, delta)
+    local minV, maxV = self:GetMinMaxValues()
+    local step = self:GetValueStep() or 1
+    local newValue = self:GetValue() + delta * step
+    -- 按 step 取整，避免浮点误差
+    newValue = math.floor(newValue / step + 0.5) * step
+    newValue = math.max(minV, math.min(maxV, newValue))
+    self:SetValue(newValue)
+  end)
+
   return slider
 end
 

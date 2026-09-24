@@ -34,6 +34,10 @@ local function SetColor(texture, color)
   texture:SetColorTexture(color[1], color[2], color[3], color[4])
 end
 
+-- 胶囊控件（CreateCapsuleToggle）贴图根路径：默认按「嵌入插件的 libs/LibHUI/Assets」解析
+-- （addonName = 加载本文件的插件）。非标准安装路径可预先设置 HUI.WidgetAssetRoot 覆盖。
+local ASSET_ROOT = HUI.WidgetAssetRoot or ("Interface\\AddOns\\" .. addonName .. "\\libs\\LibHUI\\Assets\\")
+
 local function AddLine(parent, layer, r, g, b, a, width, height, point, relativePoint, x, y)
   local texture = parent:CreateTexture(nil, layer)
   texture:SetColorTexture(r, g, b, a)
@@ -534,6 +538,195 @@ function Widgets:CreateToggle(parent, checked, onChanged)
     if type(onChanged) == "function" then
       onChanged(self.checked)
     end
+  end)
+
+  button:SetChecked(checked)
+  return button
+end
+
+-- 胶囊拼装（文件局部助手）：4 角实心四分之一圆盘（预翻转 TR/BL/BR 贴图，不做 SetTexCoord 镜像）
+-- + 上/下边条 + 全宽中条，互不重叠避免双重混色。⚠️ 全部块统一用文件贴图（WHITE8X8 + 顶点染色），
+-- 纯色贴图与文件贴图混批在部分客户端会导致同层渲染顺序不稳定（滑块端帽时有时无）。
+-- 返回贴图列表，供 PaintCapsule 重染（主题换色 / 开关态切换）。
+local function BuildCapsulePieces(f, corner)
+  local pieces = {}
+  local function Disc(name, anchor)
+    local tex = f:CreateTexture(nil, "BACKGROUND")
+    tex:SetTexture(ASSET_ROOT .. name)
+    tex:SetSize(corner, corner)
+    tex:SetPoint(anchor)
+    pieces[#pieces + 1] = tex
+    return tex
+  end
+  Disc("LibHUI_CornerTL", "TOPLEFT")
+  Disc("LibHUI_CornerTR", "TOPRIGHT")
+  Disc("LibHUI_CornerBL", "BOTTOMLEFT")
+  Disc("LibHUI_CornerBR", "BOTTOMRIGHT")
+  local function Strip()
+    local tex = f:CreateTexture(nil, "BACKGROUND")
+    tex:SetTexture("Interface\\Buttons\\WHITE8X8")
+    pieces[#pieces + 1] = tex
+    return tex
+  end
+  -- 上边条 / 下边条（贴住边、衔接角块）/ 全宽中条（衔接左右角的垂直中部），互不重叠
+  local top = Strip()
+  top:SetPoint("TOPLEFT", f, "TOPLEFT", corner, 0)
+  top:SetPoint("BOTTOMRIGHT", f, "TOPRIGHT", -corner, -corner)
+  local bottom = Strip()
+  bottom:SetPoint("TOPLEFT", f, "BOTTOMLEFT", corner, corner)
+  bottom:SetPoint("BOTTOMRIGHT", f, "BOTTOMRIGHT", -corner, 0)
+  local mid = Strip()
+  mid:SetPoint("TOPLEFT", f, "TOPLEFT", 0, -corner)
+  mid:SetPoint("BOTTOMRIGHT", f, "BOTTOMRIGHT", 0, corner)
+  return pieces
+end
+
+local function PaintCapsule(pieces, color)
+  for _, tex in ipairs(pieces) do
+    tex:SetVertexColor(color[1], color[2], color[3], color[4] or 1)
+  end
+end
+
+local function LerpColor(a, b, t)
+  return {
+    a[1] + (b[1] - a[1]) * t,
+    a[2] + (b[2] - a[2]) * t,
+    a[3] + (b[3] - a[3]) * t,
+  }
+end
+
+local function Lighten(c, d)
+  return { math.min(c[1] + d, 1), math.min(c[2] + d, 1), math.min(c[3] + d, 1), c[4] or 1 }
+end
+
+-- 胶囊动效开关：圆角轨道 + 圆形把手，点击时把手 0.14s easeOutQuad 滑动、轨道/把手颜色同步渐变。
+-- 结构（内嵌版 ReskinToggle 同源）：1px 灰胶囊描边（内缩 1px）+ 深色轨道胶囊（内缩 2px，
+-- 角 = 把手/2+1 = 轨道高一半 = 完美胶囊）+ 圆形把手（高-6）。开 = accent 轨道 + 白把手，
+-- 关 = toggleOff 轨道 + 灰把手；主题换色即时跟随（OnAccentChanged）。
+-- width/height 可选，默认 40×20。API 与 CreateToggle 一致：SetChecked(value, animate)/GetValue/SetValue。
+function Widgets:CreateCapsuleToggle(parent, checked, onChanged, width, height)
+  local button = CreateFrame("Button", nil, parent)
+  local W = tonumber(width) or 40
+  local H = tonumber(height) or 20
+  local KNOB = H - 6
+  local CORNER = KNOB / 2 + 1
+  local ANIM_DUR = 0.14
+  local BORDER_COLOR = { 0.42, 0.42, 0.46, 1.0 }
+  button:SetSize(W, H)
+
+  -- 描边胶囊：比轨道大 1px，关态轨道放在深色面板上也有 1px 边圈
+  local border = CreateFrame("Frame", nil, button)
+  border:SetPoint("TOPLEFT", 1, -1)
+  border:SetPoint("BOTTOMRIGHT", -1, 1)
+  local borderPieces = BuildCapsulePieces(border, CORNER)
+  PaintCapsule(borderPieces, BORDER_COLOR)
+
+  -- 轨道胶囊：贴图提升到 BORDER 层——描边/轨道分属两个子 Frame，同层跨 frame 的
+  -- 渲染批次顺序在部分客户端不稳定，会导致描边偶现盖在轨道上。
+  local track = CreateFrame("Frame", nil, button)
+  track:SetPoint("TOPLEFT", 2, -2)
+  track:SetPoint("BOTTOMRIGHT", -2, 2)
+  local trackPieces = BuildCapsulePieces(track, CORNER)
+  for _, tex in ipairs(trackPieces) do
+    tex:SetDrawLayer("BORDER")
+  end
+
+  -- 圆形把手：Frame 容器 + 圆贴图，染把手色（关=灰 / 开=白）
+  local knob = CreateFrame("Frame", nil, button)
+  knob:SetSize(KNOB, KNOB)
+  local knobTex = knob:CreateTexture(nil, "ARTWORK")
+  knobTex:SetTexture(ASSET_ROOT .. "LibHUI_Circle")
+  knobTex:SetAllPoints()
+
+  local function KnobX(on)
+    return on and (W - KNOB - 3) or 3
+  end
+
+  local function StateColors(on)
+    return {
+      track = on and Theme:Color("accent") or Theme:Color("toggleOff"),
+      knob = on and { 1, 1, 1, 1 } or Theme:Color("muted"),
+    }
+  end
+
+  -- 视觉状态机：button.checked 为唯一真相。animate=false 直接 snap（初始化/显隐重同步/换色用），
+  -- animate=true 走 OnUpdate 动画（从当前视觉状态平滑重定向，连点不跳变）。
+  local function ApplyState(animate)
+    local on = button.checked and true or false
+    local toX = KnobX(on)
+    local toC = StateColors(on)
+    button.__anim = false
+    if not animate then
+      knob:ClearAllPoints()
+      knob:SetPoint("LEFT", button, "LEFT", toX, 0)
+      PaintCapsule(trackPieces, toC.track)
+      knobTex:SetVertexColor(toC.knob[1], toC.knob[2], toC.knob[3])
+      button.__knobX, button.__trackC, button.__knobC = toX, toC.track, toC.knob
+      return
+    end
+    button.__fromX = button.__knobX or toX
+    button.__toX = toX
+    button.__fromT = button.__trackC or toC.track
+    button.__toT = toC.track
+    button.__fromK = button.__knobC or toC.knob
+    button.__toK = toC.knob
+    button.__el = 0
+    button.__anim = true
+  end
+
+  button:SetScript("OnUpdate", function(_, delta)
+    if not button.__anim then return end
+    button.__el = button.__el + delta
+    local t = button.__el >= ANIM_DUR and 1 or button.__el / ANIM_DUR
+    local e = 1 - (1 - t) * (1 - t)  -- easeOutQuad
+    knob:ClearAllPoints()
+    knob:SetPoint("LEFT", button, "LEFT", button.__fromX + (button.__toX - button.__fromX) * e, 0)
+    PaintCapsule(trackPieces, LerpColor(button.__fromT, button.__toT, e))
+    knobTex:SetVertexColor(LerpColor(button.__fromK, button.__toK, e))
+    if t >= 1 then
+      button.__anim = false
+      button.__knobX, button.__trackC, button.__knobC = button.__toX, button.__toT, button.__toK
+    end
+  end)
+
+  -- 隐藏帧不触发 OnUpdate：若动画期间被藏起，重现将 snap 到当前真相终态，不留中间态
+  button:SetScript("OnShow", function()
+    ApplyState(false)
+  end)
+
+  function button:SetChecked(value, animate)
+    self.checked = value and true or false
+    ApplyState(animate and true or false)
+  end
+
+  -- 别名：兼容以 value 语义调用的场景（同 CreateToggle）
+  button.SetValue = button.SetChecked
+  function button:GetValue()
+    return self.checked
+  end
+
+  button:SetScript("OnClick", function()
+    button:SetChecked(not button.checked, true)
+    if type(onChanged) == "function" then
+      onChanged(button.checked)
+    end
+  end)
+
+  -- 悬停变色：轨道提亮一档给反馈；移出后颜色动画过渡回当前状态（把手位置不变）
+  button:SetScript("OnEnter", function()
+    if not button:IsEnabled() then return end
+    button.__anim = false
+    local c = Lighten(StateColors(button.checked and true or false).track, 0.10)
+    PaintCapsule(trackPieces, c)
+    button.__trackC = c
+  end)
+  button:SetScript("OnLeave", function()
+    ApplyState(true)
+  end)
+
+  -- 主题换色即时跟随：重置部件底色并按当前开关态重染轨道/把手（不动画）
+  button._huiAccentListenerID = Theme:OnAccentChanged(function()
+    ApplyState(false)
   end)
 
   button:SetChecked(checked)

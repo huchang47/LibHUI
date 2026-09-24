@@ -1,5 +1,20 @@
 # LibHUI Changelog
 
+## [Unreleased]
+
+### Added
+- `Widgets:CreateCapsuleToggle(parent, checked, onChanged, width, height)` - capsule toggle with
+  sliding knob animation (0.14s easeOutQuad), rounded track + circular knob, track/knob color
+  crossfade, instant accent-color follow; default 40×20, optional size
+- New assets: `LibHUI_CornerTL/TR/BL/BR.tga` (quarter-disc capsule corners), `LibHUI_Circle.tga`
+  (knob); texture root resolves to `<embedding addon>/libs/LibHUI/Assets/`, overridable via
+  `HUI.WidgetAssetRoot`
+- Slider supports mouse-wheel adjustment
+
+### Changed
+- Settings panel `toggle` control type now renders with `CreateCapsuleToggle`
+- Toggle (flat) border color follows state on both on/off (previously accent-only when on)
+
 ## [0.1.0] - 2026-07-01
 
 ### Added

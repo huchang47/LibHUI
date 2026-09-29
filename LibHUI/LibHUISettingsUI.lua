@@ -314,7 +314,8 @@ function UI:RenderControl(app, parent, control, yOffset)
     -- 绑定 widget 到 control，供外部调用 :SetText 更新按钮文字（如试听/停止切换）
     control.widget = btn
   elseif controlType == "toggle" then
-    local toggle = Widgets:CreateToggle(row, value, function(checked)
+    -- 胶囊动效开关：滑块滑动 + 轨道变色渐变（旧方形开关可改回 Widgets:CreateToggle）
+    local toggle = Widgets:CreateCapsuleToggle(row, value, function(checked)
       app:SetValue(control, checked)
       self:SetDetail(control)
     end)

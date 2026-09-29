@@ -389,6 +389,16 @@ local path = Theme:Asset("rowNormal") -- 返回完整路径字符串
 
 创建开关控件。`onChanged(checked)` 在状态变化时触发。
 
+### `Widgets:CreateCapsuleToggle(parent, checked, onChanged, width, height)`
+
+创建胶囊动效开关：圆角轨道 + 圆形把手，点击时把手 0.14s 缓动滑到另一端，轨道与把手颜色同步渐变。开 = 重点色轨道 + 白把手，关 = 深色轨道 + 灰把手；主题换色即时跟随。
+
+- `width` / `height`：可选，默认 `40 × 20`（把手 = 高度 - 6）
+- API 与 `CreateToggle` 一致：`SetChecked(value, animate)` / `GetValue()` / `SetValue(value, animate)`；程序化调用 `SetChecked(v)` 默认瞬移，传第二个参数 `true` 走动画
+- 贴图默认按「嵌入插件的 `libs/LibHUI/Assets/`」解析；非标准安装路径可在加载前设置 `HUI.WidgetAssetRoot` 覆盖
+
+设置面板的 `toggle` 控件类型已默认使用本控件。
+
 ### `Widgets:CreateSlider(parent, value, minValue, maxValue, step, onChanged)`
 
 创建滑块控件。`onChanged(currentValue)` 在值变化时触发。

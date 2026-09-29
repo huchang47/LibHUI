@@ -388,6 +388,16 @@ Creates a group header (light label block + right-side divider line).
 
 Creates an on/off toggle. `onChanged(checked)` fires on state change.
 
+### `Widgets:CreateCapsuleToggle(parent, checked, onChanged, width, height)`
+
+Creates a capsule toggle with sliding animation: rounded track + circular knob; on click the knob glides to the other end over 0.14s (easeOutQuad) while the track and knob colors crossfade. On = accent track + white knob, off = dark track + gray knob; follows accent color changes instantly.
+
+- `width` / `height`: optional, default `40 × 20` (knob = height - 6)
+- Same API as `CreateToggle`: `SetChecked(value, animate)` / `GetValue()` / `SetValue(value, animate)`; programmatic `SetChecked(v)` snaps instantly, pass `true` as the second argument to animate
+- Textures resolve to `<embedding addon>/libs/LibHUI/Assets/` by default; set `HUI.WidgetAssetRoot` before loading to override non-standard install paths
+
+The settings panel's `toggle` control type uses this widget by default.
+
 ### `Widgets:CreateSlider(parent, value, minValue, maxValue, step, onChanged)`
 
 Creates a slider. `onChanged(currentValue)` fires on value change.

@@ -34,9 +34,21 @@ local function SetColor(texture, color)
   texture:SetColorTexture(color[1], color[2], color[3], color[4])
 end
 
--- 胶囊控件（CreateCapsuleToggle）贴图根路径：默认按「嵌入插件的 libs/LibHUI/Assets」解析
+-- 胶囊控件（CreateCapsuleToggle）贴图根路径：默认按「嵌入插件的 Libs/LibHUI/Assets」解析
 -- （addonName = 加载本文件的插件）。非标准安装路径可预先设置 HUI.WidgetAssetRoot 覆盖。
-local ASSET_ROOT = HUI.WidgetAssetRoot or ("Interface\\AddOns\\" .. addonName .. "\\libs\\LibHUI\\Assets\\")
+-- 使用 Theme:GetAssetRoot() 以支持大小写自动检测
+local function GetWidgetAssetRoot()
+  if HUI.WidgetAssetRoot then
+    return HUI.WidgetAssetRoot
+  end
+  local Theme = HUI.Theme
+  if Theme and Theme.GetAssetRoot then
+    return Theme:GetAssetRoot()
+  end
+  -- 回退方案：默认使用大写 Libs
+  return "Interface\\AddOns\\" .. addonName .. "\\Libs\\LibHUI\\Assets\\"
+end
+local ASSET_ROOT = GetWidgetAssetRoot()
 
 local function AddLine(parent, layer, r, g, b, a, width, height, point, relativePoint, x, y)
   local texture = parent:CreateTexture(nil, layer)

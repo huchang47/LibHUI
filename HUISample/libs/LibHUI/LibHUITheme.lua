@@ -63,10 +63,54 @@ Theme.fonts = {
 }
 
 Theme.assets = {
-  -- 1px 宽，横向拉伸填充使用。WoW 贴图路径不带扩展名
+  -- WoW 贴图路径不带扩展名
   rowNormal = "LibHUI_RowNormal",
   rowSelected = "LibHUI_RowSelected",
 }
+
+-- 缓存已检测的目录结构（大写Libs或小写libs）
+local detectedLibsCase = nil
+
+-- 自动检测实际使用的 Libs 目录大小写
+local function DetectLibsCase()
+  if detectedLibsCase then
+    return detectedLibsCase
+  end
+
+  -- 创建临时纹理测试路径是否有效
+  -- WoW 会在贴图加载失败时返回 0 宽度，可以用此判断文件是否存在
+  local testFrame = CreateFrame("Frame")
+  testFrame:SetSize(1, 1)
+  local testTexture = testFrame:CreateTexture()
+  
+  -- 先尝试大写 Libs（推荐标准）
+  local pathWithCapital = "Interface\\AddOns\\" .. addonName .. "\\Libs\\LibHUI\\Assets\\LibHUI_RowNormal"
+  testTexture:SetTexture(pathWithCapital)
+  testTexture:SetAllPoints()
+  local capitalWorks = (testTexture:GetWidth() > 0)
+  
+  if capitalWorks then
+    detectedLibsCase = "Libs"
+  else
+    -- 尝试小写 libs（兼容旧版本）
+    local pathWithLower = "Interface\\AddOns\\" .. addonName .. "\\libs\\LibHUI\\Assets\\LibHUI_RowNormal"
+    testTexture:SetTexture(pathWithLower)
+    local lowerWorks = (testTexture:GetWidth() > 0)
+    
+    if lowerWorks then
+      detectedLibsCase = "libs"
+    else
+      -- 都不存在，回退到大写（可能用户自定义了 assetRoot）
+      detectedLibsCase = "Libs"
+    end
+  end
+  
+  -- 清理测试对象
+  testFrame:Hide()
+  testFrame = nil
+  
+  return detectedLibsCase
+end
 
 function Theme:GetAssetRoot(app)
   local opts = app and app.opts
@@ -74,7 +118,9 @@ function Theme:GetAssetRoot(app)
     return opts.assetRoot
   end
 
-  return "Interface\\AddOns\\" .. addonName .. "\\libs\\LibHUI\\Assets\\"
+  -- 自动检测并缓存正确的目录大小写
+  local libsCase = DetectLibsCase()
+  return "Interface\\AddOns\\" .. addonName .. "\\" .. libsCase .. "\\LibHUI\\Assets\\"
 end
 
 function Theme:Asset(name, app)

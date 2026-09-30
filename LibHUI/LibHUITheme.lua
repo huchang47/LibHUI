@@ -78,21 +78,24 @@ local function DetectLibsCase()
   end
 
   -- 创建临时纹理测试路径是否有效
+  -- WoW 会在贴图加载失败时返回 0 宽度，可以用此判断文件是否存在
   local testFrame = CreateFrame("Frame")
+  testFrame:SetSize(1, 1)
   local testTexture = testFrame:CreateTexture()
   
   -- 先尝试大写 Libs（推荐标准）
-  local pathWithCapital = "Interface\\AddOns\\" .. addonName .. "\\Libs\\LibHUI\\Assets\\LibHUI_RowNormal.tga"
+  local pathWithCapital = "Interface\\AddOns\\" .. addonName .. "\\Libs\\LibHUI\\Assets\\LibHUI_RowNormal"
   testTexture:SetTexture(pathWithCapital)
-  local capitalWorks = (testTexture:GetTexture() ~= nil)
+  testTexture:SetAllPoints()
+  local capitalWorks = (testTexture:GetWidth() > 0)
   
   if capitalWorks then
     detectedLibsCase = "Libs"
   else
     -- 尝试小写 libs（兼容旧版本）
-    local pathWithLower = "Interface\\AddOns\\" .. addonName .. "\\libs\\LibHUI\\Assets\\LibHUI_RowNormal.tga"
+    local pathWithLower = "Interface\\AddOns\\" .. addonName .. "\\libs\\LibHUI\\Assets\\LibHUI_RowNormal"
     testTexture:SetTexture(pathWithLower)
-    local lowerWorks = (testTexture:GetTexture() ~= nil)
+    local lowerWorks = (testTexture:GetWidth() > 0)
     
     if lowerWorks then
       detectedLibsCase = "libs"

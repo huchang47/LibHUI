@@ -2,18 +2,20 @@
 
 ## [Unreleased]
 
+## [0.2.0] - 2026-09-29
+
+### Fixed
+- Fixed asset path case sensitivity issue - now using `Libs` (uppercase) as standard directory name
+- Improved directory detection logic - using `GetWidth() > 0` to verify texture loading success instead of unreliable `GetTexture()`
+- Removed incorrect `.tga` extension from `Theme.assets` (WoW texture paths should not include extensions)
+- `LibHUIWidgets.lua` now uses `Theme:GetAssetRoot()` to inherit case-sensitivity auto-detection
+
 ### Added
-- `Widgets:CreateCapsuleToggle(parent, checked, onChanged, width, height)` - capsule toggle with
-  sliding knob animation (0.14s easeOutQuad), rounded track + circular knob, track/knob color
-  crossfade, instant accent-color follow; default 40×20, optional size
-- New assets: `LibHUI_CornerTL/TR/BL/BR.tga` (quarter-disc capsule corners), `LibHUI_Circle.tga`
-  (knob); texture root resolves to `<embedding addon>/libs/LibHUI/Assets/`, overridable via
-  `HUI.WidgetAssetRoot`
-- Slider supports mouse-wheel adjustment
+- Added `DetectLibsCase()` auto-detection function to support both uppercase `Libs` and lowercase `libs` directories
+- Prefers uppercase `Libs` (recommended standard), falls back to lowercase `libs` (legacy compatibility)
 
 ### Changed
-- Settings panel `toggle` control type now renders with `CreateCapsuleToggle`
-- Toggle (flat) border color follows state on both on/off (previously accent-only when on)
+- `LibHUIWidgets.lua` `ASSET_ROOT` now dynamically resolves via `Theme:GetAssetRoot()` instead of hardcoded path
 
 ## [0.1.0] - 2026-07-01
 
